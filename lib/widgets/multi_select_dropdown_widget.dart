@@ -1,0 +1,376 @@
+import 'package:flutter/material.dart';
+import 'package:tax10_uikit/utils/ui_color.dart';
+import 'package:tax10_uikit/utils/text_style.dart';
+import 'package:tax10_uikit/utils/spacing.dart';
+import 'package:tax10_uikit/utils/ui_helpers.dart';
+
+class UiMultiSelectDropdown<T> extends StatefulWidget {
+  final String? label;
+  final String? hint;
+  final List<T> options;
+  final bool isRequired;
+  final String? errorText;
+  final bool isMultiselect;
+  final List<T> selectedItems;
+  final String Function(T) displayText;
+  final ValueChanged<List<T>> onChanged;
+  final Future<void> Function(String)? onSearch;
+  final Widget Function(T)? children;
+  final VoidCallback? onAddElement;
+  final String? labelButton;
+  final TextEditingController? searchController;
+  final bool reverseSelectedOrder;
+  final FocusNode? focusNode;
+
+  const UiMultiSelectDropdown({
+    super.key,
+    this.hint,
+    this.label,
+    this.onSearch,
+    this.errorText,
+    this.children,
+    this.onAddElement,
+    this.labelButton,
+    this.searchController,
+    required this.options,
+    this.isRequired = false,
+    required this.onChanged,
+    this.isMultiselect = true,
+    required this.displayText,
+    required this.selectedItems,
+    this.reverseSelectedOrder = false,
+    this.focusNode,
+  });
+
+  @override
+  State<UiMultiSelectDropdown<T>> createState() =>
+      _UiMultiSelectDropdownState<T>();
+}
+
+class _UiMultiSelectDropdownState<T> extends State<UiMultiSelectDropdown<T>> {
+  TextEditingController? _ownedController;
+  final _resultsScrollController = ScrollController();
+  String _searchText = '';
+
+  TextEditingController get _effectiveController =>
+      widget.searchController ?? _ownedController!;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.searchController == null) {
+      _ownedController = TextEditingController();
+    }
+    _effectiveController.addListener(_onSearchChanged);
+    _searchText = _effectiveController.text;
+  }
+
+  void _onSearchChanged() {
+    setState(() => _searchText = _effectiveController.text);
+  }
+
+  @override
+  void didUpdateWidget(covariant UiMultiSelectDropdown<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchController != widget.searchController) {
+      final oldCtrl = oldWidget.searchController ?? _ownedController;
+      oldCtrl?.removeListener(_onSearchChanged);
+
+      if (oldWidget.searchController == null && widget.searchController != null) {
+        _ownedController?.dispose();
+        _ownedController = null;
+      } else if (oldWidget.searchController != null &&
+          widget.searchController == null) {
+        _ownedController = TextEditingController();
+      }
+
+      _effectiveController.addListener(_onSearchChanged);
+      _searchText = _effectiveController.text;
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _effectiveController.removeListener(_onSearchChanged);
+    _ownedController?.dispose();
+    _resultsScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final searchWords = _searchText
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
+
+    final filteredOptions = widget.options.where((option) {
+      if (widget.selectedItems.contains(option)) return false;
+      final text = widget.displayText(option).toLowerCase();
+      return searchWords.every(text.contains);
+    }).toList();
+
+    const showDropdown = true;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.label != null) ...[
+          RichText(
+            text: TextSpan(
+              text: widget.label,
+              style: AppTypography.label,
+              children: [
+                if (widget.isRequired)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: AppColors.error),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        Material(
+          elevation: 4,
+          shadowColor: Colors.black12,
+          borderRadius: BorderRadius.circular(32),
+          child: TextField(
+            controller: _effectiveController,
+            focusNode: widget.focusNode,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              filled: true,
+              fillColor: AppColors.surface,
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 10,
+                horizontal: 20,
+              ),
+              prefixIcon: const Icon(Icons.search, color: Colors.grey),
+              suffixIcon: _searchText.isNotEmpty
+                  ? IconButton(
+                      tooltip: 'Limpiar',
+                      icon: const Icon(Icons.close, color: Colors.grey),
+                      onPressed: () {
+                        _effectiveController.clear();
+                        setState(() => _searchText = '');
+                        widget.onSearch?.call('');
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(32),
+                borderSide: const BorderSide(color: AppColors.gray200),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(32),
+                borderSide: const BorderSide(color: AppColors.gray200),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(32),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 2,
+                ),
+              ),
+            ),
+            onChanged: (value) {
+              widget.onSearch?.call(value);
+            },
+          ),
+        ),
+        if (widget.onAddElement != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: widget.onAddElement,
+              icon: const Icon(Icons.add, size: 20),
+              label: Text(widget.labelButton ?? 'Agregar elemento'),
+            ),
+          ),
+        ],
+        if (showDropdown) ...[
+          UIHelpers.verticalSpaceSM,
+          Container(
+            constraints: const BoxConstraints(maxHeight: 300),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              border: Border.all(
+                color: AppColors.textSecondary.withOpacity(0.2),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: RawScrollbar(
+              controller: _resultsScrollController,
+              thumbVisibility: true,
+              thickness: 6,
+              radius: const Radius.circular(8),
+              thumbColor: AppColors.gray400,
+              child: ListView.builder(
+                controller: _resultsScrollController,
+                shrinkWrap: true,
+                itemCount: filteredOptions.length,
+                itemBuilder: (context, index) {
+                  final option = filteredOptions[index];
+                  final isSelected = widget.selectedItems.contains(option);
+
+                  return InkWell(
+                    onTap: () {
+                      final newSelected = List<T>.from(widget.selectedItems);
+                      if (isSelected) {
+                        newSelected.remove(option);
+                      } else {
+                        if (widget.isMultiselect) {
+                          newSelected.add(option);
+                        } else {
+                          newSelected.clear();
+                          newSelected.add(option);
+                        }
+                      }
+                      widget.onChanged(newSelected);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.only(
+                        left: AppSpacing.paddingMD,
+                        top: AppSpacing.paddingMD,
+                        bottom: AppSpacing.paddingMD,
+                        right: AppSpacing.paddingMD + 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withOpacity(0.1)
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: isSelected,
+                            onChanged: (value) {
+                              final newSelected =
+                                  List<T>.from(widget.selectedItems);
+                              if (value == true) {
+                                if (widget.isMultiselect) {
+                                  newSelected.add(option);
+                                } else {
+                                  newSelected.clear();
+                                  newSelected.add(option);
+                                }
+                              } else {
+                                newSelected.remove(option);
+                              }
+                              widget.onChanged(newSelected);
+                            },
+                            activeColor: AppColors.primary,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              widget.displayText(option),
+                              style: AppTypography.bodyMedium.copyWith(
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+        if (widget.selectedItems.isNotEmpty) ...[
+          UIHelpers.verticalSpaceSM,
+          Column(
+            children: (widget.reverseSelectedOrder
+                    ? widget.selectedItems.reversed
+                    : widget.selectedItems)
+                .map((item) {
+              final hasChildren = widget.children != null;
+
+              return Container(
+                key: ObjectKey(item),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.paddingMD,
+                  vertical: AppSpacing.paddingXS,
+                ),
+                margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius:
+                      BorderRadius.circular(AppSpacing.radiusMD),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: true,
+                          onChanged: (value) {
+                            if (value == false) {
+                              final newSelected =
+                                  List<T>.from(widget.selectedItems)
+                                    ..remove(item);
+                              widget.onChanged(newSelected);
+                            }
+                          },
+                          activeColor: AppColors.primary,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            widget.displayText(item),
+                            style: AppTypography.bodyMedium.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (hasChildren) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      SizedBox(
+                        width: double.infinity,
+                        child: widget.children!(item),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+        if (widget.errorText != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            widget.errorText!,
+            style: AppTypography.caption.copyWith(color: AppColors.error),
+          ),
+        ],
+      ],
+    );
+  }
+}
