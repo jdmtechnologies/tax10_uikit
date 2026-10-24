@@ -16,6 +16,7 @@ import 'package:tax10_uikit/models/gender_type.dart';
 import 'package:tax10_uikit/models/place_details.dart';
 import 'package:tax10_uikit/utils/loading_overlay.dart';
 import 'package:tax10_uikit/widgets/dropdown_widget.dart';
+import 'package:tax10_uikit/widgets/select_input_widget.dart';
 import 'package:tax10_uikit/widgets/base_card_widget.dart';
 import 'package:tax10_uikit/widgets/text_input_widget.dart';
 import 'package:tax10_uikit/components/inputs/focusable_resizable_input.dart';
@@ -406,6 +407,38 @@ class UiInputs {
         type: type,
         width: width,
         focusNode: focusNode,
+      );
+
+  /// Dropdown de selección simple con el mismo estilo visual que
+  /// [textInput] (label, borde, fondo), para catálogos de opciones
+  /// conocidas (ej. software contable, tipos de documento).
+  Widget selectInput<T>({
+    Key? key,
+    String? hint,
+    String? label,
+    T? value,
+    String? errorText,
+    ValueChanged<T?>? onChanged,
+    String? emptyOptionLabel,
+    required List<T> items,
+    required String Function(T item) itemLabel,
+    bool isRequired = false,
+    bool isReadOnly = false,
+    InputType type = InputType.dark,
+  }) =>
+      UiSelectInput<T>(
+        key: key,
+        hint: hint,
+        type: type,
+        label: label,
+        value: value,
+        items: items,
+        itemLabel: itemLabel,
+        errorText: errorText,
+        onChanged: onChanged,
+        isRequired: isRequired,
+        isReadOnly: isReadOnly,
+        emptyOptionLabel: emptyOptionLabel,
       );
 
   Widget textInput({

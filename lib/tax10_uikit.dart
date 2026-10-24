@@ -54,6 +54,7 @@ export 'utils/custom_show_dialog.dart';
 // Widgets
 export 'widgets/index_widget.dart';
 export 'widgets/dropdown_widget.dart';
+export 'widgets/select_input_widget.dart';
 export 'widgets/base_card_widget.dart';
 export 'widgets/text_input_widget.dart';
 export 'widgets/focusable_text_input_widget.dart';
